@@ -122,7 +122,7 @@ ASAS-Active-Situational-Awareness-System/
 │
 ├── README.md
 ├── asas_core.py
-├── demo.ipynb
+├── scimulation_framework.py
 ├── docs/
 │   ├── mathematical_foundation.md
 │   ├── system_architecture.md
