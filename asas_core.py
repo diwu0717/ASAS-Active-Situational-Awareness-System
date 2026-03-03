@@ -1,235 +1,126 @@
 from typing import Dict, Tuple
-import numpy as np
+import copy
 
 
 # ============================================================
-# Utility: Normalization
+# Utility
 # ============================================================
 
 def normalize(scores: Dict[str, float]) -> Dict[str, float]:
-    """
-    Normalize a dictionary of scores into a probability distribution.
-
-    Why?
-    ----
-    Allocation is modeled as a resource distribution problem.
-    The total available monitoring resource is fixed (sum = 1.0).
-
-    If all scores are zero, we fall back to uniform allocation.
-    """
-
     total = sum(scores.values())
-
     if total == 0:
         n = len(scores)
         return {k: 1.0 / n for k in scores}
-
     return {k: v / total for k, v in scores.items()}
 
 
 # ============================================================
-# ASAS Allocation Strategy
+# Allocation Strategies
 # ============================================================
 
-def allocate_asas(
-    risk: Dict[str, float],
-    confidence: Dict[str, float],
-    exploration_weight: float = 1.0,
-    stabilization_weight: float = 0.5
-) -> Dict[str, float]:
-    """
-    ASAS allocation strategy.
+def allocate_asas(risk, confidence,
+                  exploration_weight=1.0,
+                  stabilization_weight=0.5):
 
-    Core idea:
-    ----------
-    Monitoring effort is distributed based on BOTH:
+    raw = {}
 
-        1. Risk magnitude (r)
-        2. Confidence level (c)
+    for s in risk:
+        r = risk[s]
+        c = confidence[s]
 
-    Two components:
-
-        Exploration   -> r * (1 - c)
-            Focus on uncertain but risky sectors.
-            Prevent hidden or emerging risks.
-
-        Stabilization -> r * c
-            Maintain stability in already monitored high-risk areas.
-
-    The weighting allows balancing between proactive discovery
-    and maintaining control of known threats.
-    """
-
-    raw_scores = {}
-
-    for sector in risk:
-
-        r = risk[sector]
-        c = confidence[sector]
-
-        # Explore sectors where risk is high but confidence is low
         exploration = exploration_weight * r * (1 - c)
-
-        # Stabilize sectors that are high-risk but already well understood
         stabilization = stabilization_weight * r * c
 
-        raw_scores[sector] = exploration + stabilization
+        raw[s] = exploration + stabilization
 
-    return normalize(raw_scores)
+    return normalize(raw)
 
 
-# ============================================================
-# Baseline 1: Equal Allocation
-# ============================================================
-
-def allocate_equal(risk: Dict[str, float]) -> Dict[str, float]:
-    """
-    Uniform resource distribution.
-
-    Serves as naive baseline:
-    - Ignores risk
-    - Ignores confidence
-    """
-
+def allocate_equal(risk):
     n = len(risk)
     return {k: 1.0 / n for k in risk}
 
 
-# ============================================================
-# Baseline 2: Risk-Only (Greedy)
-# ============================================================
-
-def allocate_risk_only(risk: Dict[str, float]) -> Dict[str, float]:
-    """
-    Greedy strategy.
-
-    Allocates purely proportional to observed risk.
-
-    Assumption:
-    -----------
-    Highest current risk deserves most attention.
-
-    Limitation:
-    -----------
-    Ignores uncertainty structure and cross-domain effects.
-    """
-
+def allocate_risk_only(risk):
     return normalize(risk)
 
 
 # ============================================================
-# Residual Entropy
+# Coupled Risk World
 # ============================================================
 
-def calculate_residual_entropy(
-    allocation: Dict[str, float],
-    confidence: Dict[str, float]
-) -> float:
-    """
-    Residual system entropy.
-
-    Interpretation:
-    ---------------
-    Entropy represents remaining system uncertainty.
-
-    For each sector:
-        uncertainty = (1 - confidence)
-
-    The total entropy is allocation-weighted uncertainty.
-
-    Why weighted?
-    -------------
-    Because entropy is measured relative to
-    where the system is focusing its attention.
-
-    If resources are allocated to highly uncertain areas,
-    entropy is high.
-    """
-
-    entropy = 0.0
-
-    for sector in allocation:
-        uncertainty = 1 - confidence[sector]
-        entropy += allocation[sector] * uncertainty
-
-    return entropy
-
-
-# ============================================================
-# Confidence Update (Learning Model)
-# ============================================================
-
-def update_confidence(
+def compute_next_risk(
+    base_risk: Dict[str, float],
+    current_risk: Dict[str, float],
     confidence: Dict[str, float],
     allocation: Dict[str, float],
-    learning_rate: float = 0.2
-) -> Dict[str, float]:
+    coupling: Dict[Tuple[str, str], float],
+    mitigation_strength: float = 0.4
+):
     """
-    Confidence update rule.
+    Risk dynamics:
 
-    Model assumption:
-    -----------------
-    Monitoring effort increases confidence.
+    next_risk =
+        intrinsic_base
+      + spillover_from_low_confidence
+      - mitigation_from_allocation
 
-    Learning dynamic:
-        new_c = c + alpha * allocation * (1 - c)
-
-    Properties:
-    -----------
-    - Diminishing returns (bounded by 1.0)
-    - No overshoot
-    - Stability guaranteed
+    This creates a real control problem.
     """
+
+    next_risk = copy.deepcopy(base_risk)
+
+    # --- Spillover (systemic propagation) ---
+    for (src, tgt), weight in coupling.items():
+        spill = weight * (1 - confidence[src])**2
+        next_risk[tgt] += spill
+
+    # --- Mitigation (monitoring reduces risk) ---
+    for s in next_risk:
+        mitigation = mitigation_strength * allocation[s]
+        next_risk[s] -= mitigation
+
+        # Risk bounded below
+        next_risk[s] = max(next_risk[s], 0.0)
+
+    return next_risk
+
+
+# ============================================================
+# Confidence Learning
+# ============================================================
+
+def update_confidence(confidence, allocation, learning_rate=0.2):
 
     new_conf = {}
 
-    for sector in confidence:
-
-        c = confidence[sector]
-        a = allocation[sector]
+    for s in confidence:
+        c = confidence[s]
+        a = allocation[s]
 
         new_c = c + learning_rate * a * (1 - c)
-
-        new_conf[sector] = min(new_c, 1.0)
+        new_conf[s] = min(new_c, 1.0)
 
     return new_conf
 
 
 # ============================================================
-# Coupled Risk Dynamics (Systemic Risk Model)
+# True System Entropy
 # ============================================================
 
-def compute_effective_risk(
-    base_risk: Dict[str, float],
-    confidence: Dict[str, float],
-    coupling: Dict[Tuple[str, str], float]
-) -> Dict[str, float]:
+def calculate_entropy(risk, confidence):
     """
-    Compute effective risk under cross-domain coupling.
+    System entropy defined as:
 
-    Core idea:
-    ----------
-    Urban risks are not independent.
+        risk × uncertainty
 
-    If sector A has low confidence,
-    it can propagate risk into sector B.
-
-    coupling[(A, B)] = weight
-        means A influences B with given intensity.
-
-    Spillover model:
-        spillover = weight * (1 - confidence[A])
-
-    This creates SYSTEMIC risk,
-    not visible in isolated sector models.
+    This ensures:
+    - High risk + low knowledge = dangerous
     """
 
-    effective = base_risk.copy()
+    entropy = 0.0
 
-    for (src, tgt), weight in coupling.items():
+    for s in risk:
+        entropy += risk[s] * (1 - confidence[s])
 
-        spillover = weight * (1 - confidence[src])
-
-        effective[tgt] += spillover
-
-    return effective
+    return entropy
