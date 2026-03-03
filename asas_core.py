@@ -7,6 +7,9 @@ import copy
 # ============================================================
 
 def normalize(scores: Dict[str, float]) -> Dict[str, float]:
+    """
+    Normalize dictionary values so they sum to 1.
+    """
     total = sum(scores.values())
     if total == 0:
         n = len(scores)
@@ -18,11 +21,20 @@ def normalize(scores: Dict[str, float]) -> Dict[str, float]:
 # Allocation Strategies
 # ============================================================
 
-def allocate_asas(risk, confidence,
-                  exploration_weight=1.0,
-                  stabilization_weight=0.5):
+def allocate_asas(
+    risk: Dict[str, float],
+    confidence: Dict[str, float],
+    exploration_weight: float = 1.0,
+    stabilization_weight: float = 0.5
+) -> Dict[str, float]:
+    """
+    ASAS allocation balances:
+        - Exploration: focus on high risk + low confidence
+        - Stabilization: maintain high risk + high confidence
 
-    raw = {}
+    This avoids purely greedy risk chasing.
+    """
+    raw_scores = {}
 
     for s in risk:
         r = risk[s]
@@ -31,56 +43,67 @@ def allocate_asas(risk, confidence,
         exploration = exploration_weight * r * (1 - c)
         stabilization = stabilization_weight * r * c
 
-        raw[s] = exploration + stabilization
+        raw_scores[s] = exploration + stabilization
 
-    return normalize(raw)
+    return normalize(raw_scores)
 
 
-def allocate_equal(risk):
+def allocate_equal(risk: Dict[str, float]) -> Dict[str, float]:
+    """
+    Uniform resource allocation baseline.
+    """
     n = len(risk)
     return {k: 1.0 / n for k in risk}
 
 
-def allocate_risk_only(risk):
+def allocate_risk_only(risk: Dict[str, float]) -> Dict[str, float]:
+    """
+    Greedy baseline:
+    Allocate purely proportional to current risk.
+    """
     return normalize(risk)
 
 
 # ============================================================
-# Coupled Risk World
+# Stateful Coupled Risk Dynamics
 # ============================================================
 
 def compute_next_risk(
-    base_risk: Dict[str, float],
     current_risk: Dict[str, float],
     confidence: Dict[str, float],
     allocation: Dict[str, float],
     coupling: Dict[Tuple[str, str], float],
+    natural_decay: float = 0.05,
     mitigation_strength: float = 0.4
-):
+) -> Dict[str, float]:
     """
-    Risk dynamics:
+    Dynamic risk update (STATEFUL MODEL):
 
-    next_risk =
-        intrinsic_base
+    risk[t+1] =
+        risk[t] * (1 - natural_decay)
       + spillover_from_low_confidence
       - mitigation_from_allocation
 
-    This creates a real control problem.
+    This introduces:
+        - Memory (risk accumulation)
+        - Systemic propagation
+        - Control feedback
     """
 
-    next_risk = copy.deepcopy(base_risk)
+    next_risk = copy.deepcopy(current_risk)
 
-    # --- Spillover (systemic propagation) ---
+    # 1️⃣ Natural decay (prevents unbounded growth)
+    for s in next_risk:
+        next_risk[s] *= (1 - natural_decay)
+
+    # 2️⃣ Systemic spillover (nonlinear propagation)
     for (src, tgt), weight in coupling.items():
         spill = weight * (1 - confidence[src])**2
         next_risk[tgt] += spill
 
-    # --- Mitigation (monitoring reduces risk) ---
+    # 3️⃣ Mitigation via allocation
     for s in next_risk:
-        mitigation = mitigation_strength * allocation[s]
-        next_risk[s] -= mitigation
-
-        # Risk bounded below
+        next_risk[s] -= mitigation_strength * allocation[s]
         next_risk[s] = max(next_risk[s], 0.0)
 
     return next_risk
@@ -90,7 +113,14 @@ def compute_next_risk(
 # Confidence Learning
 # ============================================================
 
-def update_confidence(confidence, allocation, learning_rate=0.2):
+def update_confidence(
+    confidence: Dict[str, float],
+    allocation: Dict[str, float],
+    learning_rate: float = 0.2
+) -> Dict[str, float]:
+    """
+    Confidence increases when a sector receives monitoring resources.
+    """
 
     new_conf = {}
 
@@ -105,17 +135,22 @@ def update_confidence(confidence, allocation, learning_rate=0.2):
 
 
 # ============================================================
-# True System Entropy
+# System Entropy
 # ============================================================
 
-def calculate_entropy(risk, confidence):
+def calculate_entropy(
+    risk: Dict[str, float],
+    confidence: Dict[str, float]
+) -> float:
     """
-    System entropy defined as:
+    System-level uncertainty defined as:
 
-        risk × uncertainty
+        entropy = Σ (risk × uncertainty)
 
-    This ensures:
-    - High risk + low knowledge = dangerous
+    where uncertainty = (1 - confidence)
+
+    This ensures that:
+        - High risk + low knowledge = high system cost
     """
 
     entropy = 0.0
