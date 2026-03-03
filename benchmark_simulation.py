@@ -5,42 +5,52 @@ from asas_core import (
     allocate_asas,
     allocate_equal,
     allocate_risk_only,
-    calculate_residual_entropy,
+    compute_next_risk,
     update_confidence,
-    compute_effective_risk
+    calculate_entropy
 )
 
 
-def run_simulation(allocator, base_risk, confidence, coupling, steps=20):
+def run_simulation(
+    allocator,
+    initial_risk,
+    confidence,
+    coupling,
+    steps=40
+):
     """
-    Run multi-step simulation of entropy reduction.
+    Simulate a coupled urban risk system.
 
-    Each iteration consists of:
-
-        1. Compute effective risk (with cross-domain spillover)
-        2. Allocate monitoring resources
-        3. Measure residual entropy
+    Each iteration:
+        1. Allocate resources
+        2. Measure entropy
+        3. Update risk (stateful dynamics)
         4. Update confidence
-
-    This models a cognitive control loop.
     """
 
     conf = copy.deepcopy(confidence)
+    risk = copy.deepcopy(initial_risk)
+
     entropy_history = []
 
     for _ in range(steps):
 
-        # Step 1: Risk evolves via systemic coupling
-        effective_risk = compute_effective_risk(base_risk, conf, coupling)
+        # 1️⃣ Allocation
+        allocation = allocator(risk, conf)
 
-        # Step 2: Allocation strategy decides resource distribution
-        allocation = allocator(effective_risk, conf)
-
-        # Step 3: Measure residual entropy
-        entropy = calculate_residual_entropy(allocation, conf)
+        # 2️⃣ Measure system entropy
+        entropy = calculate_entropy(risk, conf)
         entropy_history.append(entropy)
 
-        # Step 4: Update system knowledge state
+        # 3️⃣ Risk dynamics update
+        risk = compute_next_risk(
+            current_risk=risk,
+            confidence=conf,
+            allocation=allocation,
+            coupling=coupling
+        )
+
+        # 4️⃣ Confidence learning
         conf = update_confidence(conf, allocation)
 
     return entropy_history
@@ -48,59 +58,54 @@ def run_simulation(allocator, base_risk, confidence, coupling, steps=20):
 
 if __name__ == "__main__":
 
-    # Base intrinsic risk levels
-    base_risk = {
-        "Hbf": 0.95,
-        "Bridges": 0.80,
-        "Messe": 0.40,
-        "Airport": 0.70
+    initial_risk = {
+        "Hbf": 0.9,
+        "Bridges": 0.7,
+        "Messe": 0.4,
+        "Airport": 0.6
     }
 
-    # Initial knowledge confidence
     confidence = {
-        "Hbf": 0.90,
-        "Bridges": 0.60,
-        "Messe": 0.30,
-        "Airport": 0.50
+        "Hbf": 0.8,
+        "Bridges": 0.5,
+        "Messe": 0.2,
+        "Airport": 0.4
     }
 
-    # Cross-domain systemic coupling
-    # (source -> target)
+    # Strong systemic coupling
     coupling = {
-        ("Hbf", "Bridges"): 0.25,
-        ("Bridges", "Airport"): 0.20,
-        ("Messe", "Hbf"): 0.15
+        ("Messe", "Hbf"): 0.8,
+        ("Hbf", "Bridges"): 0.7,
+        ("Bridges", "Airport"): 0.6
     }
 
-    # Run strategies
     asas_entropy = run_simulation(
         allocate_asas,
-        base_risk,
+        initial_risk,
         confidence,
         coupling
     )
 
     equal_entropy = run_simulation(
         lambda r, c: allocate_equal(r),
-        base_risk,
+        initial_risk,
         confidence,
         coupling
     )
 
     risk_entropy = run_simulation(
         lambda r, c: allocate_risk_only(r),
-        base_risk,
+        initial_risk,
         confidence,
         coupling
     )
 
-    # Visualization
     plt.plot(asas_entropy)
     plt.plot(equal_entropy)
     plt.plot(risk_entropy)
 
     plt.legend(["ASAS", "Equal", "Risk-Only"])
-    plt.title("Entropy Reduction Benchmark (Coupled Risk World)")
+    plt.title("Entropy Reduction in Stateful Coupled Urban Risk System")
     plt.xlabel("Iteration")
-    plt.ylabel("Residual Entropy")
+    plt.ylabel("System Entropy")
     plt.show()
