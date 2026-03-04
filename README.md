@@ -1,234 +1,251 @@
-# ASAS-Active-Situational-Awareness-System
+# ASAS — Active Situational Awareness System
 
-## 1. Executive Summary
-
-ASAS (Active Situational Awareness System) is a structural decision engine designed to allocate limited attention and operational resources in high-uncertainty environments.
-
-In complex systems, decision failure is often caused not by lack of data, but by misallocation of attention.
-
-ASAS formalizes attention as a computable, optimizable variable.
-
-It transforms situational awareness from a visualization problem into a measurable allocation problem.
-
----
-## 1. Executive Summary
-
-ASAS (Active Situational Awareness System) is a structural decision engine designed to allocate limited attention and operational resources in high-uncertainty environments.
-
-In complex systems, decision failure is often caused not by lack of data, but by misallocation of attention.
-
-ASAS formalizes attention as a computable, optimizable variable.
-
-It transforms situational awareness from a visualization problem into a measurable allocation problem.
+> *"Many urban risks remain invisible not because data is missing,  
+> but because no system is responsible for integrating meaning across domains."*
 
 ---
 
-## 2. Problem Statement
+## Problem
 
-In environments such as:
+Existing urban monitoring systems treat risk signals **independently and reactively**. They observe what is happening, but do not model:
 
-- Urban emergency response
-- Infrastructure monitoring
-- Enterprise risk management
-- Cybersecurity triage
-- Autonomous system supervision
+- **Spillover effects** — how low-confidence sectors propagate uncertainty to neighbors
+- **Epistemic uncertainty as a controllable variable** — confidence is not fixed; it responds to where attention is directed
+- **Attention allocation as a dynamic control problem** — where to look next is a decision with system-wide consequences
 
-Decision-makers face:
+This leads to two failure modes observed in practice:
 
-- Information overload
-- Conflicting signals
-- Uneven data reliability
-- Limited operational capacity
+| Failure mode | Cause | Consequence |
+|---|---|---|
+| **Uniform monitoring** | No priority signal | High-risk sectors under-observed |
+| **Risk-sink concentration** | Reactive focus on visible hotspots | Upstream causes ignored; sinks accumulate risk regardless |
 
-The core question becomes:
+The Frankfurt Marathon incident illustrates the second failure: a professional athlete collapsed at an aid station while all relevant data — weather, road closures, event logistics — existed in separate systems. No mechanism integrated these signals into a unified risk picture.
 
-How should limited attention be dynamically allocated across competing risk zones under uncertainty?
+**ASAS formulates situational awareness as a control-theoretic optimization problem**, where the system actively manages the allocation of sensing attention to minimize risk-weighted uncertainty across an urban sector network.
 
 ---
 
-## 3. Core Allocation Model (v0.1)
+## Contributions
 
-### 3.1 Attention Allocation
+ASAS introduces:
 
-For each sector *i*:
+1. **A unified state representation** separating *systemic risk* (what is happening) from *epistemic confidence* (what the system knows), making the epistemic gap an explicit, controllable quantity.
 
-Attention Scoreᵢ = Riskᵢ × (1 − Confidenceᵢ)
+2. **A control-theoretic formulation of attention allocation** — where to direct sensing resources is treated as a dynamic control variable, not a static dashboard parameter.
 
-Where:
+3. **An entropy-based objective function** `H(t) = Σ aᵢ rᵢ uᵢ` linking allocation decisions directly to residual uncertainty under risk.
 
-- Riskᵢ ∈ [0,1] represents estimated impact severity
-- Confidenceᵢ ∈ [0,1] represents reliability of available information
-- (1 − Confidenceᵢ) captures unresolved uncertainty
+4. **A modular policy space** that continuously interpolates between uniform and greedy allocation via a single temperature parameter γ, with theoretical guarantees on boundary behavior.
 
-Interpretation:
+5. **A theoretical boundary result**: under persistent symmetric spillover with linear confidence dynamics, reactive entropy minimization converges to uniform allocation. ASAS advantage over uniform emerges precisely when external event signals break network symmetry.
 
-- High Risk + Low Confidence → Exploration priority
-- High Risk + High Confidence → Stabilization priority
-- Low Risk → Lower allocation unless uncertainty escalates
-
-Attention scores are normalized into allocation weights:
-
-Allocationᵢ = Attention Scoreᵢ / Σ Attention Scoreⱼ
-
-This converts qualitative assessment into computable resource distribution.
+6. **A plug-in cognitive reasoning layer** — any LLM can be attached as an optional adapter to translate quantitative state into human-readable situational intelligence, without coupling the mathematical core to any specific model.
 
 ---
 
-### 3.2 Residual Entropy
-
-To evaluate system performance over time:
-
-Residual Entropyₜ = Σ (Allocationᵢ × Remaining Uncertaintyᵢ)
-
-Objective:
-
-Minimize Residual Entropy over time.
-
-If entropy does not decrease, allocation strategy must be updated.
-
-This enables measurable improvement of situational clarity.
-
----
-
-## 4. System Architecture
-
-ASAS consists of four conceptual modules:
-
-### 1. Global Entropy Layer
-- Measures overall system uncertainty
-- Tracks whether attention allocation improves clarity
-
-### 2. Priority Allocation Engine (Core)
-- Converts Risk & Confidence into dynamic weights
-- Normalizes resource distribution
-
-### 3. Decision Deferral Mechanism
-- Flags low-confidence sectors
-- Prevents premature commitment
-- Triggers verification processes
-
-### 4. Power Reserve Layer
-- Preserves capacity for unexpected spikes
-- Prevents full saturation of attention bandwidth
-
-This repository currently implements the Priority Allocation Engine and entropy evaluation framework.
-
----
-
-## 5. Repository Structure
+## Architecture
 
 ```
-ASAS-Active-Situational-Awareness-System/
-│
-├── README.md
-├── asas_core.py
-├── simulation.py
-├── docs/
-│   ├── mathematical_foundation.md
-│   ├── system_architecture.md
-│   └── deployment_roadmap.md
-└── examples/
-    ├── urban_simulation.ipynb
-    └── enterprise_risk_case.ipynb
+ASAS/
+├── asas/
+│   ├── core/                  ← Mathematical framework (the theoretical contribution)
+│   │   ├── state.py           ← SystemState: systemic risk + epistemic confidence
+│   │   ├── dynamics.py        ← State transition equations (explicit Euler)
+│   │   ├── objective.py       ← H(t): entropy objective + diagnostics
+│   │   ├── policy.py          ← Pluggable allocation strategies
+│   │   └── engine.py          ← Control loop orchestrator (no math inside)
+│   └── cognitive/             ← LLM adapter layer (optional, thin)
+│       ├── base.py            ← CognitiveHub abstract interface (one method)
+│       ├── claude.py          ← Claude (Anthropic) reference implementation
+│       └── gemini.py          ← Gemini (Google) reference implementation
+├── examples/
+│   └── frankfurt_strike/      ← Reference scenario: Feb 2, 2026 transport strike
+├── benchmark/
+│   └── allocation_comparison.py  ← Reproduces policy evolution experiments
+└── docs/
+    └── theory.md              ← Full mathematical derivations
 ```
----
 
-## 6. Deployment Path (Step-by-Step Implementation)
-
-ASAS is designed to be deployable in progressive stages.
-
-### Phase 1 – Offline Simulation
-- Static risk & confidence inputs
-- Allocation calculation
-- Entropy tracking
-- Scenario-based evaluation
-
-### Phase 2 – Dynamic Update Layer
-- Time-decay modeling
-- Confidence recalibration
-- Risk fluctuation tracking
-- Iterative entropy reduction
-
-### Phase 3 – Active Verification Layer
-- Exploration vs. exploitation balancing
-- Triggering external verification actions
-- Automated signal re-weighting
-
-### Phase 4 – Operational Dashboard
-- Human-in-the-loop interface
-- Alert prioritization
-- Resource dispatch recommendation
-- Integration with real-time APIs
+**Design principle**: `core/` is the theoretical contribution. `cognitive/` is a thin adapter. The LLM is not the system — it is one possible reasoning backend. Replacing or removing the cognitive layer does not affect the mathematical framework.
 
 ---
 
-## 7. Practical Application Domains
+## Mathematical Framework
 
-ASAS is domain-agnostic and applies wherever:
+### State variables
 
-- Information density exceeds human processing capacity
-- Resource allocation decisions affect system stability
-- Uncertainty must be actively reduced
+Each urban sector `i` carries three variables at time `t`:
 
-Potential deployment scenarios:
+| Variable | Symbol | Layer | Semantics |
+|---|---|---|---|
+| Risk | `rᵢ ∈ [0,1]` | Systemic | Estimated severity of current conditions |
+| Confidence | `cᵢ ∈ [0,1]` | Epistemic | Quality of situational awareness |
+| Allocation | `aᵢ ∈ [0,1]` | Control | Fraction of sensing attention, `Σaᵢ = 1` |
 
-- City-level emergency coordination
-- Critical infrastructure monitoring
-- Enterprise operational risk allocation
-- Financial risk prioritization
-- AI supervision layers for autonomous systems
+Derived: `uᵢ = 1 − cᵢ` (uncertainty — the epistemic gap).
+
+The separation of systemic and epistemic layers is not cosmetic. It reflects the core claim: *urban failures often arise not from high risk alone, but from the gap between risk and understanding.*
+
+### Objective function
+
+```
+H(t) = Σᵢ  aᵢ(t) · rᵢ(t) · uᵢ(t)
+```
+
+**System entropy** measures risk-weighted residual uncertainty under current attention.
+
+| H(t) state | Interpretation |
+|---|---|
+| H rising | Attention is misallocated; risk accumulates faster than awareness |
+| H stable | System is maintaining situational awareness under pressure |
+| H falling | Confidence is being built where risk is highest |
+
+Policy design objective: **minimize cumulative H(t) over time**.
+
+### State evolution
+
+```
+rᵢ(t+1) = rᵢ(t)·(1−δ)  +  Σⱼ→ᵢ wⱼᵢ·rⱼ(t)·uⱼ(t)²  −  μ·aᵢ(t)  +  eventᵢ(t)
+cᵢ(t+1) = cᵢ(t)  +  η·aᵢ(t)·(1−cᵢ(t))  −  ρ·cᵢ(t)
+```
+
+Key design choices:
+
+- **Spillover** `wⱼᵢ · rⱼ · uⱼ²`: risk *and* uncertainty must both be high for a sector to propagate — a low-risk sector generates little spillover even if unmonitored
+- **Explicit Euler stepping**: spillover uses `rⱼ(t)`, not updated risk — no implicit self-feedback amplification within a step, making dynamics analytically tractable
+- **Forgetting** `ρ·cᵢ`: structurally necessary — without it `cᵢ → 1`, `uᵢ → 0`, and the policy loses its ability to differentiate sectors
+- **Event injection** `eventᵢ(t)`: how the perception layer (sensors, strikes, weather) enters the mathematical framework
+
+### Allocation policy (v0.4)
+
+```
+aᵢ* ∝ exp(scoreᵢ / γ)      scoreᵢ = rᵢ·uᵢ + λ·outflowᵢ
+```
+
+where `outflowᵢ = Σⱼ wᵢⱼ · rᵢ · uᵢ²` is the marginal system value of attending to sector `i`.
+
+The temperature parameter `γ` continuously controls allocation concentration:
+
+| γ | Behavior |
+|---|---|
+| γ → 0 | Greedy: all attention on `argmax(score)` |
+| γ = 0.5 | Balanced: moderate concentration |
+| γ → ∞ | Uniform: Equal baseline |
+
+### Key experimental finding
+
+γ-scan experiments across four coupling environments (STABLE → EXPLOSIVE) show a strict monotone relationship: cumulative H(t) decreases as γ increases, with the minimum always at γ → ∞ in symmetric networks.
+
+**Theoretical boundary result**:
+
+> *Under persistent symmetric spillover with linear confidence dynamics, reactive entropy minimization converges to uniform allocation as the optimal strategy. Purely reactive policies — regardless of score design, floor heuristics, or regularization — cannot outperform uniform allocation in fully symmetric networks.*
+
+This establishes the operating condition for ASAS advantage: **external event signals must break network symmetry** to justify non-uniform allocation. The system's value is in detecting and responding to that asymmetry.
+
+See `docs/theory.md` and `benchmark/` for full derivations and experimental results.
 
 ---
 
-## 8. Competition Context & Post-Submission Evolution
+## Pluggable Policies
 
-The original competition submission demonstrated a scenario-based application.
+All strategies implement one interface:
 
-This repository extracts and formalizes the underlying allocation engine to:
+```python
+class AllocationPolicy:
+    def allocate(self, state: SystemState) -> Dict[str, float]:
+        ...
+```
 
-- Increase structural clarity
-- Enable reproducibility
-- Support cross-domain validation
-- Prepare for real-world deployment
+| Policy | Formula | Notes |
+|---|---|---|
+| `EqualPolicy` | `aᵢ = 1/N` | γ→∞ limit; optimal under symmetric spillover |
+| `RiskOnlyPolicy` | `aᵢ ∝ rᵢ` | Ignores epistemic state |
+| `ReactivePolicy` | `aᵢ ∝ rᵢ·uᵢ` | Adds uncertainty awareness; with ε-floor |
+| `SoftmaxPolicy` | `aᵢ ∝ exp(scoreᵢ/γ)` | Entropy-regularized; unifies all reactive policies |
+| `AdaptivePolicy` | subclass | Base for stateful / predictive extensions (v0.5+) |
 
-The focus has shifted from interface demonstration to core decision mechanics.
-
----
-
-## 9. Current Status
-
-✔ Core allocation function implemented  
-✔ Residual entropy metric defined  
-✔ Simulation framework in development  
-⬜ Multi-scenario benchmarking  
-⬜ Real-time integration layer  
-⬜ Field pilot validation  
+`SoftmaxPolicy` subsumes all others: `EqualPolicy` is γ→∞, `RiskOnlyPolicy` is γ→0 with `outflow_weight=0`.
 
 ---
 
-## 10. Vision
+## Experiments
 
-ASAS is not a visualization tool.
+```bash
+# Policy comparison: reproduces v0.1 → v0.4 evolution
+python benchmark/allocation_comparison.py
+# → benchmark/policy_comparison.png
 
-It is a structural decision engine that:
+# Frankfurt strike scenario (no LLM required)
+python examples/frankfurt_strike/scenario.py
+python examples/frankfurt_strike/scenario.py --gamma 0.3 --steps 30
 
-- Quantifies attention
-- Prices uncertainty
-- Dynamically redistributes cognitive resources
-- Enables measurable reduction of systemic entropy
-
-The long-term objective is to establish a generalizable framework for managing complex, high-entropy systems in the AI era.
+# With cognitive hub
+ANTHROPIC_API_KEY=... python examples/frankfurt_strike/scenario.py --llm claude
+GOOGLE_API_KEY=...   python examples/frankfurt_strike/scenario.py --llm gemini
+```
 
 ---
 
-## 11. Collaboration & Deployment
+## Quickstart
 
-This project is open for:
+```python
+from asas import ASASEngine
+from asas.core.policy import SoftmaxPolicy
 
-- Pilot deployment discussions
-- Cross-domain validation
-- Research collaboration
-- Integration partnerships
+engine = ASASEngine.from_dict(
+    sectors={
+        "Hbf":     {"risk": 0.55, "confidence": 0.70},
+        "Messe":   {"risk": 0.25, "confidence": 0.30},
+        "Airport": {"risk": 0.35, "confidence": 0.45},
+    },
+    coupling={
+        ("Messe", "Hbf"):     0.40,
+        ("Messe", "Airport"): 0.30,
+    },
+    policy=SoftmaxPolicy(gamma=0.5),
+)
 
-Please open an issue or connect via LinkedIn to explore potential applications.
+engine.ingest({"Hbf": +0.40, "Airport": +0.15})  # inject event
+state = engine.step()
+print(f"H(t) = {engine.entropy:.3f}")
+
+for sector, alloc in engine.priority_allocations():
+    print(f"  {sector}: {alloc*100:.1f}%")
+```
+
+**With cognitive hub** (optional LLM reasoning):
+
+```python
+from asas.cognitive.claude import ClaudeHub
+
+engine = ASASEngine.from_dict(..., cognitive_hub=ClaudeHub())
+report = engine.analyze(context={"events": ["Ver.di strike active"]})
+print(report.operational_report)
+```
+
+---
+
+## Install
+
+```bash
+pip install -e .
+```
+
+Dependencies: `numpy`, `matplotlib`. LLM adapters: `anthropic` or `google-generativeai` (optional).
+
+---
+
+## Citation
+
+```bibtex
+@software{asas2026,
+  title  = {ASAS: Active Situational Awareness System —
+            A Control-Theoretic Framework for Urban Situational Awareness},
+  year   = {2026},
+  url    = {https://github.com/diwu0717/ASAS-Active-Situational-Awareness-System}
+}
+```
+
+---
 
