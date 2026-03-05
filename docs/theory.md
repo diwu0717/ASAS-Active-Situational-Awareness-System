@@ -984,6 +984,57 @@ providing 14–15% improvement over Equal at under 2ms per step.
 
 ---
 
+### Sector-Focused MPC Approximation
+
+The ASAS-MPC Policy evaluates a restricted candidate set of allocations
+rather than performing a full search over the allocation simplex.
+
+For each sector i, a *sector-focused* allocation vector `aᵢ^focus` is
+constructed, allocating a larger share of attention to sector i while
+distributing the remaining budget uniformly across the others:
+
+```
+aᵢ^focus_j = 1/N + f·(1 − 1/N)   if j = i
+             1/N · (1 − f)          if j ≠ i
+```
+
+The policy performs a T-step closed-loop rollout for each candidate and
+computes the cumulative discounted objective V_i. The resulting values are
+converted into a smooth allocation via softmax transformation.
+
+**Interpretation as first-order approximation**:
+
+This candidate set can be interpreted as a coordinate-search approximation
+in the (N−1)-dimensional allocation simplex. Each candidate `aᵢ^focus`
+perturbs the uniform allocation by focus strength f in the direction of
+sector i. The ranking of sectors by V_i therefore estimates the marginal
+value of increasing attention to each sector — a first-order approximation
+to the gradient `∂V/∂aᵢ`. This approach resembles coordinate-search
+methods commonly used in high-dimensional control and optimization, where
+optimizing along N structured directions provides a tractable substitute
+for full-space search.
+
+**Complexity justification**:
+
+A full search over the allocation simplex at resolution ε would require
+evaluating O(ε^{-(N-1)}) candidate allocations, leading to
+O(ε^{-(N-1)} × T) rollout cost. For N=20 sectors and ε=0.1, this is
+approximately 10¹⁹ evaluations — computationally intractable. The
+sector-focused candidate set reduces this to O(N × T), enabling
+real-time evaluation at urban sensing frequencies without specialized
+hardware.
+
+**Relation to model-based planning**:
+
+The ASAS-MPC structure — state → model rollout → value estimate →
+softmax policy — is equivalent to a model-based planning policy as used
+in recent work on learned world models. The key distinction is that ASAS
+uses an analytically specified dynamics model (the risk-confidence
+difference equations) rather than a learned approximation, providing
+theoretical guarantees under the stability condition ρ(W̃/δ) < 1.
+
+---
+
 ---
 
 ## 9. Summary of Parameters
