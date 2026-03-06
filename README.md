@@ -248,4 +248,3 @@ Dependencies: `numpy`, `matplotlib`. LLM adapters: `anthropic` or `google-genera
 ```
 
 ---
-

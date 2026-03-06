@@ -1,10 +1,10 @@
 """
 benchmark/allocation_comparison.py
 ====================================
-Reproduces the v0.1 → v0.4 policy evolution experiments.
+Reproduces the v0.1 → v0.5 policy evolution experiments.
 
-Compares EqualPolicy, RiskOnlyPolicy, ReactivePolicy, SoftmaxPolicy
-across four coupling environments. Generates Figure_12/13 equivalents.
+Compares EqualPolicy, RiskOnlyPolicy, ReactivePolicy, SoftmaxPolicy,
+and PredictivePolicy across four coupling environments.
 
 Run: python benchmark/allocation_comparison.py
 """
@@ -19,7 +19,8 @@ import matplotlib.gridspec as gridspec
 
 from asas.core.state import make_state
 from asas.core.engine import ASASEngine
-from asas.core.policy import EqualPolicy, RiskOnlyPolicy, ReactivePolicy, SoftmaxPolicy
+from asas.core.policy import (EqualPolicy, RiskOnlyPolicy, ReactivePolicy,
+                              SoftmaxPolicy, PredictivePolicy, MPCPolicy)
 from asas.core.objective import system_entropy, cumulative_entropy
 
 # ── Scenario ───────────────────────────────────────────────────────────────────
@@ -46,21 +47,27 @@ ENVIRONMENTS = {
 }
 
 POLICIES = {
-    "Equal":        EqualPolicy(),
-    "Risk-Only":    RiskOnlyPolicy(),
-    "Reactive":     ReactivePolicy(gamma=0.0, epsilon=0.05),
-    "Softmax γ=0.5": SoftmaxPolicy(gamma=0.5),
-    "Softmax γ=2.0": SoftmaxPolicy(gamma=2.0),
+    "Equal":           EqualPolicy(),
+    "Risk-Only":       RiskOnlyPolicy(),
+    "Reactive":        ReactivePolicy(gamma=0.0, epsilon=0.05),
+    "Softmax γ=0.5":   SoftmaxPolicy(gamma=0.5),
+    "Softmax γ=2.0":   SoftmaxPolicy(gamma=2.0),
+    "Predictive v0.5": PredictivePolicy(gamma=0.5, outflow_weight=0.5),
+    "MPC T=3":         None,   # instantiated per-environment (needs decay param)
+    "MPC T=5":         None,
 }
 
 STEPS = 60
 
 COLORS = {
-    "Equal":         "#D97706",
-    "Risk-Only":     "#DC2626",
-    "Reactive":      "#7C3AED",
-    "Softmax γ=0.5": "#1D4ED8",
-    "Softmax γ=2.0": "#0891B2",
+    "Equal":           "#D97706",
+    "Risk-Only":       "#DC2626",
+    "Reactive":        "#7C3AED",
+    "Softmax γ=0.5":   "#1D4ED8",
+    "Softmax γ=2.0":   "#0891B2",
+    "Predictive v0.5": "#059669",
+    "MPC T=3":         "#065F46",
+    "MPC T=5":         "#022C22",
 }
 
 
@@ -78,6 +85,20 @@ def run_policy(policy, sectors, coupling, steps, decay):
     return [system_entropy(s) for s in history]
 
 
+MPC_SHARED = dict(
+    gamma=0.5, focus_strength=0.5, discount=1.0,
+    mitigation_strength=0.30, learning_rate=0.15, forgetting_rate=0.03,
+)
+
+def make_policy(name, decay):
+    """Instantiate policy, injecting decay for MPC which needs it at init."""
+    if name == "MPC T=3":
+        return MPCPolicy(horizon=3, natural_decay=decay, **MPC_SHARED)
+    if name == "MPC T=5":
+        return MPCPolicy(horizon=5, natural_decay=decay, **MPC_SHARED)
+    return POLICIES[name]
+
+
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 print("Running benchmark...")
@@ -85,7 +106,8 @@ results = {}
 for env_name, cfg in ENVIRONMENTS.items():
     coupling = {k: v * cfg["scale"] for k, v in BASE_COUPLING.items()}
     results[env_name] = {"cfg": cfg}
-    for pol_name, policy in POLICIES.items():
+    for pol_name in POLICIES:
+        policy = make_policy(pol_name, cfg["decay"])
         results[env_name][pol_name] = run_policy(
             policy, SECTORS_INIT, coupling, STEPS, cfg["decay"]
         )
