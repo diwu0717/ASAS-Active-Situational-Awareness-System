@@ -4,6 +4,18 @@
 
 > *ASAS makes the city legible to decision-makers.*
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19110001.svg)](https://doi.org/10.5281/zenodo.19110001)
+
+---
+
+## Paper
+
+**ASAS: A Control-Theoretic Framework for Urban Situational Awareness with Model Predictive Attention Allocation**
+
+Di Wu · March 2026
+
+📄 [Read the paper](https://doi.org/10.5281/zenodo.19110001)
+
 ---
 
 ## What it does
@@ -52,14 +64,11 @@ what was missing that day.
 
 ## Policy Evolution
 
-The theoretical core of ASAS is a systematic policy development chain.
-Each version is experimentally tested; failures are diagnosed and documented.
-
 | Version | Policy | Result | Key Finding |
 |---------|--------|--------|-------------|
 | v0.4 | SoftmaxPolicy | ✓ Baseline | Symmetry invariance theorem: under symmetric networks, all reactive policies converge to uniform allocation |
 | v0.5 | PredictivePolicy | ❌ Negative result | Confidence asymmetry distortion + risk saturation masking |
-| **v0.7** | **MPCPolicy** | **✓ +14–47% over Equal** | Multi-step horizon captures delayed spillover benefits |
+| **v0.7** | **MPCPolicy** | **✓ +5–23% over Equal** | Multi-step horizon captures delayed spillover benefits |
 
 The v0.5 negative result is **theoretically informative** — it identifies
 one-step myopia as the structural barrier and directly motivates v0.7.
@@ -74,29 +83,26 @@ simulate T steps forward under closed-loop rollout, and allocate
 via softmax over negative cumulative H:
 
 ```
-Candidate:   aᵢ_j = 1/N + f·(1-1/N)   if j = i
-                   = 1/N·(1-f)          if j ≠ i
+Candidate:   a⁽ⁱ⁾_j = 1/N + f·(1-1/N)   if j = i
+                      = 1/N·(1-f)          if j ≠ i
 
-Rollout:     V_i = Σₜ₌₁ᵀ  βᵗ · H(sₜ)
+Rollout:     V_i = Σₜ₌₁ᵀ βᵗ · H(sₜ)
 
 Allocation:  aᵢ* ∝ exp(-V_i / γ)
 ```
 
-**Horizon sensitivity**: H(T) is strictly monotonically decreasing in T.
-No optimal finite horizon exists. T=5 is the efficiency frontier knee:
-15.7% improvement at 5.6ms per step.
+**Horizon sensitivity**: H(T) is empirically monotonic in T.
+T=5 is the efficiency frontier knee: 15.7% improvement at 2.7ms per step.
 
 | T | Improvement vs Equal | Runtime |
 |---|---|---|
-| 1 | 14.4% | 1.2ms |
-| 3 | 14.9% | 3.0ms |
-| **5** | **15.7%** | **5.6ms** ← recommended |
-| 10 | 19.2% | 8.7ms |
-| 20 | 22.8% | 16.5ms |
+| 1 | 14.4% | 0.8ms |
+| 3 | 14.9% | 1.8ms |
+| **5** | **15.7%** | **2.7ms** ← recommended |
+| 10 | 19.2% | 5.1ms |
+| 20 | 22.8% | 9.9ms |
 
 **Complexity**: O(N²T) per step.
-Full simplex search would require O(ε^{-(N-1)}) — approximately 10¹⁹
-evaluations for N=20, ε=0.1.
 
 ---
 
@@ -142,7 +148,8 @@ ASAS-Active-Situational-Awareness-System/
 │   └── frankfurt_strike/
 │       └── scenario.py       # Feb 2, 2026 validation scenario
 └── docs/
-    └── theory.md             # Complete theoretical derivation (1000+ lines)
+    ├── theory.md             # Complete theoretical derivation (1000+ lines)
+    └── EVOLUTION.md          # Framework evolution v0.1→v0.7
 ```
 
 ---
@@ -154,10 +161,10 @@ Policy comparison across four coupling environments
 
 ```
                   STABLE   MARGINAL   UNSTABLE   EXPLOSIVE
-Equal (baseline)    2.63      3.99       5.00       6.17
-Softmax v0.4        2.64      4.43       5.64       7.36
-Predictive v0.5      —         —         5.99        —      ← worse than Equal
-MPC T=5 (v0.7)      2.28      2.74       4.22        —      ✓ beats Equal
+Equal (baseline)    1.92      3.22       4.36       6.02
+Softmax v0.4        1.94      3.36       4.55       6.32
+Predictive v0.5     2.00      3.98       5.47       7.75   ← worse than Equal
+MPC T=5 (v0.7)      1.82      2.73       3.47       4.65   ✓ beats Equal
 ```
 
 MPC advantage scales with coupling strength:
@@ -166,18 +173,36 @@ that the multi-step horizon captures.
 
 ---
 
-## Theory
+## Theory & Evolution
 
-Complete theoretical development in [`docs/theory.md`](docs/theory.md):
+- [`docs/theory.md`](docs/theory.md) — Complete formal derivation (1000+ lines)
+- [`docs/EVOLUTION.md`](docs/EVOLUTION.md) — Framework evolution v0.1→v0.7
 
-- **Section 6**: Stability conditions and spectral radius analysis
-- **Section 7**: Symmetry Invariance Proposition (v0.4 boundary theorem)
-- **Section 8**: v0.5 failure analysis — confidence asymmetry distortion,
-  risk saturation masking, one-step horizon limitation
-- **Section 8b**: ASAS-MPC formal definition, approximation error bounds,
-  horizon monotonicity, computational complexity
+---
 
-Workshop paper draft: [`docs/abstract_v07.md`](docs/abstract_v07.md)
+## Demo
+
+The ASAS APEX COMMAND interface was built using Google AI Studio with Gemini 2.0 Pro.
+
+- 🎥 [Video walkthrough](https://www.youtube.com/watch?v=9o5HNF8b9rM)
+- 🚀 [Live demo](https://aistudio.google.com/apps/drive/1Zn6XbsrJE6QVmBO-kzjvQCjZSsQlhet3?showPreview=true&showAssistant=true)
+
+---
+
+## Citation
+
+If you use this work, please cite:
+
+```bibtex
+@misc{wu2026asas,
+  title={ASAS: A Control-Theoretic Framework for Urban Situational Awareness 
+         with Model Predictive Attention Allocation},
+  author={Di Wu},
+  year={2026},
+  doi={10.5281/zenodo.19110001},
+  url={https://doi.org/10.5281/zenodo.19110001}
+}
+```
 
 ---
 
@@ -197,10 +222,12 @@ ASAS is the formalization of what was missing that day.
 
 ---
 
-## License
+## Contact
 
-MIT
+Di Wu · diwu.0717@gmail.com
 
 ---
 
-*For questions or collaboration: open an issue or reach out directly.*
+## License
+
+MIT

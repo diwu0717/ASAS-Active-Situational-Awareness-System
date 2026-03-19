@@ -149,7 +149,7 @@ for col, env_name in enumerate(env_names):
         cum = np.cumsum(entropy)
         ls  = "--" if pol_name == "Equal" else "-"
         ax.plot(iters, cum, color=COLORS[pol_name], lw=1.8,
-                linestyle=ls, label=f"{pol_name}={cum[-1]:.0f}")
+                linestyle=ls, label=f"{pol_name}={cum[-1]:.2f}")
     ax.set_xlim(0, STEPS-1); ax.set_ylim(bottom=0); ax.grid(alpha=0.2)
     ax.legend(fontsize=7)
     if col == 0:
@@ -186,6 +186,6 @@ for env_name in env_names:
     for p in pol_names:
         val = sum(res[p])
         win = "✓" if val < eq and p != "Equal" else " "
-        print(f"  {val:>13.0f}{win}", end="")
+        print(f"  {val:>13.2f}{win}", end="")
     print()
 print("="*75)
